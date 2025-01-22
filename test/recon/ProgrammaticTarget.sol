@@ -46,7 +46,7 @@ abstract contract ProgrammaticTarget is BaseTargetFunctions, AddressGulper, Prop
             collateralToken: address(tokens[collateral]),
             oracle: address(oracle), //@note I am using the same oracle for all markets..
             irm: address(irm),
-            lltv: 945000000000000000
+            lltv: lltv
         });
 
         tokens[collateral].approve(address(morpho), type(uint128).max);
