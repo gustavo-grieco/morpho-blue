@@ -1,0 +1,258 @@
+ function morpho_deployMarket(uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+        // morpho.enableIrm(address(irm));
+        morpho.enableLltv(lltv);
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle), //@note I am using the same oracle for all markets..
+            irm: address(irm),
+            lltv: lltv
+        });
+
+        tokens[collateral].approve(address(morpho), type(uint128).max);
+        tokens[collateral].mint(address(this), type(uint128).max);
+
+        tokens[loanToken].approve(address(morpho), type(uint128).max);
+        tokens[loanToken].mint(address(address(this)), type(uint128).max);
+        
+        morpho.createMarket(params); 
+        marketNumbers++;
+        markets.push(params);
+
+        
+
+    }
+    function morpho_supplyCollateral(uint256 assets, address onBehalf, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+        morpho.supplyCollateral(params, assets, onBehalf, '');
+       
+    
+    }
+
+
+
+    function morpho_supply(uint256 assets, address onBehalf, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        uint256 shares;
+        bool isEven = assets % 2 == 0 ? true : false;
+        if(!isEven) {
+             shares = assets;
+             assets = 0;
+        }
+        
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+        
+        morpho.supply(params, assets, shares, onBehalf, ''); // can either supply assets or shares
+        
+        }
+
+        function morpho_withdrawAsset(uint256 assets, address onBehalf, address receiver, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+
+         
+        morpho.withdraw(params, assets, 0, onBehalf, receiver); 
+    }
+
+    function morpho_withdrawShares(uint256 shares, address onBehalf, address receiver, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+
+        
+        morpho.withdraw(params, 0, shares, onBehalf, receiver); 
+    }
+        function morpho_withdrawCollateral(uint256 assets, address onBehalf, address receiver,  uint256 collateral, uint256 loanToken, uint256 lltv) public {
+
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+
+        morpho.withdrawCollateral(params, assets, onBehalf, receiver);
+    }
+    // The trade off of these function is that I have set a fixed lltv ? 
+    
+    function morpho_borrow(uint256 assets, address onBehalf, address receiver, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        uint256 shares;
+        bool isEven = assets % 2 == 0 ? true : false;
+        if(!isEven) {
+             shares = assets;
+             assets = 0;
+        }
+
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+        morpho.borrow(params, assets, 0, onBehalf, receiver);
+        // can do with shares such that it will do %2 and if 0 shares = 0 else asset = 0
+        t(false, 'borrow canary');
+    } //is covered
+
+    function morpho_liquidate(address borrower, uint256 seizedAssets, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+
+        // morpho.supplyCollateral(params, assets, address(this), '');
+        // morpho.supply(params, 0, shares, address(this), '');
+        // mockOracle_setPrice(2000100148811494046074094566949679332);
+        // morpho.borrow(params, assets, 0, borrower, address(0xdead));
+        // mockOracle_setPrice(secondPrice);
+        morpho.liquidate(params, borrower, seizedAssets, 0, '');
+        t(false, "quick liq canary");
+
+    }
+
+    function morpho_repayAssets(uint256 assets, address onBehalf, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+        morpho.repay(params, assets, 0, onBehalf, '');
+        
+    }
+        function morpho_repayShares(uint256 shares, address onBehalf, uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle),
+            irm: address(irm),
+            lltv: lltv
+        });
+        morpho.repay(params, 0, shares, onBehalf, '');
+        
+    }
+
+
+    function morpho_flashLoan(uint256 amountBorrow, uint256 collateral) public { 
+        collateral %= 10;
+        tokens[collateral].approve(address(morpho), amountBorrow);
+        morpho.flashLoan(address(tokens[collateral]), amountBorrow, '');
+    }
+
+
+    function morpho_setFee(uint256 newFee) public {
+
+        MarketParams memory params = MarketParams({
+        loanToken: address(loanToken),
+        collateralToken: address(collateralToken),
+        oracle: address(oracle),
+        irm: address(irm),
+        lltv: lltv94
+        });
+
+        newFee %= 0.25e18; // 
+        morpho.setFee(params, newFee);
+
+    }
+
+    function morpho_setFeeRecipient(address newFeeRecipient) public { 
+        // vm.prank(address(this)); //clamp
+        morpho.setFeeRecipient(newFeeRecipient);
+    }
+
+    function morpho_accrueInterest(uint256 collateral, uint256 loanToken, uint256 lltv) public {
+        collateral %= 10;
+        loanToken %= 10;
+        lltv %= (1e18 - 1);
+        require(collateral != loanToken, 'same loan and collateral token');
+        
+
+        MarketParams memory params = MarketParams({
+            loanToken: address(tokens[loanToken]),
+            collateralToken: address(tokens[collateral]),
+            oracle: address(oracle), //@note I am using the same oracle for all markets..
+            irm: address(irm),
+            lltv: lltv
+        });
+        morpho.accrueInterest(params);
+    }
+}

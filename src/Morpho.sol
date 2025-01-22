@@ -30,6 +30,7 @@ import {MathLib, WAD} from "./libraries/MathLib.sol";
 import {SharesMathLib} from "./libraries/SharesMathLib.sol";
 import {MarketParamsLib} from "./libraries/MarketParamsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
+import {console} from "forge-std/console.sol";
 
 /// @title Morpho
 /// @author Morpho Labs
@@ -148,7 +149,7 @@ contract Morpho is IMorphoStaticTyping {
 
     /// @inheritdoc IMorphoBase
     function createMarket(MarketParams memory marketParams) external {
-        Id id = marketParams.id();
+        Id id = marketParams.id(); // id lib
         require(isIrmEnabled[marketParams.irm], ErrorsLib.IRM_NOT_ENABLED);
         require(isLltvEnabled[marketParams.lltv], ErrorsLib.LLTV_NOT_ENABLED);
         require(market[id].lastUpdate == 0, ErrorsLib.MARKET_ALREADY_CREATED);
@@ -220,7 +221,8 @@ contract Morpho is IMorphoStaticTyping {
         market[id].totalSupplyShares -= shares.toUint128();
         market[id].totalSupplyAssets -= assets.toUint128();
 
-        require(market[id].totalBorrowAssets <= market[id].totalSupplyAssets, ErrorsLib.INSUFFICIENT_LIQUIDITY);
+        require(market[id].totalBorrowAssets <= market[id].totalSupplyAssets, ErrorsLib.INSUFFICIENT_LIQUIDITY); //@note
+            // first need to supply
 
         emit EventsLib.Withdraw(id, msg.sender, onBehalf, receiver, assets, shares);
 
@@ -248,7 +250,9 @@ contract Morpho is IMorphoStaticTyping {
 
         _accrueInterest(marketParams, id);
 
-        if (assets > 0) shares = assets.toSharesUp(market[id].totalBorrowAssets, market[id].totalBorrowShares);
+        if (assets > 0) shares = assets.toSharesUp(market[id].totalBorrowAssets, market[id].totalBorrowShares); //@note
+            // if only borrower
+
         else assets = shares.toAssetsDown(market[id].totalBorrowAssets, market[id].totalBorrowShares);
 
         position[id][onBehalf].borrowShares += shares.toUint128();
@@ -384,9 +388,7 @@ contract Morpho is IMorphoStaticTyping {
         position[id][borrower].borrowShares -= repaidShares.toUint128();
         market[id].totalBorrowShares -= repaidShares.toUint128();
         market[id].totalBorrowAssets = UtilsLib.zeroFloorSub(market[id].totalBorrowAssets, repaidAssets).toUint128();
-
         position[id][borrower].collateral -= seizedAssets.toUint128();
-
         uint256 badDebtShares;
         uint256 badDebtAssets;
         if (position[id][borrower].collateral == 0) {
@@ -534,7 +536,7 @@ contract Morpho is IMorphoStaticTyping {
         );
         uint256 maxBorrow = uint256(position[id][borrower].collateral).mulDivDown(collateralPrice, ORACLE_PRICE_SCALE)
             .wMulDown(marketParams.lltv);
-
+        // 1000e18 * 1e18 / 1e36
         return maxBorrow >= borrowed;
     }
 

@@ -36,7 +36,7 @@ library SharesMathLib {
     /// @dev Calculates the value of `assets` quoted in shares, rounding up.
     function toSharesUp(uint256 assets, uint256 totalAssets, uint256 totalShares) internal pure returns (uint256) {
         return assets.mulDivUp(totalShares + VIRTUAL_SHARES, totalAssets + VIRTUAL_ASSETS);
-    }
+    } // @note assets * 0 + 1e6 / ttl assets + 1e6
 
     /// @dev Calculates the value of `shares` quoted in assets, rounding up.
     function toAssetsUp(uint256 shares, uint256 totalAssets, uint256 totalShares) internal pure returns (uint256) {
