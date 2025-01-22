@@ -5,10 +5,15 @@ import {BaseTargetFunctions} from "@chimera/BaseTargetFunctions.sol";
 import {BeforeAfter} from "./BeforeAfter.sol";
 import {Properties} from "./Properties.sol";
 import {vm} from "@chimera/Hevm.sol";
-import {MarketParams} from "../../src/interfaces/IMorpho.sol";
+import {MarketParams, Id, Position} from "../../src/interfaces/IMorpho.sol";
 import {AddressGulper} from "./FuzzHelper.sol";
+import {MarketParamsLib} from "../../src/libraries/MarketParamsLib.sol";
+
 
 abstract contract ProgrammaticTarget is BaseTargetFunctions, AddressGulper, Properties {
+
+    using MarketParamsLib for MarketParams;
+    
     MarketParams[] markets;
     uint256 marketNumbers;
 
@@ -119,18 +124,31 @@ abstract contract ProgrammaticTarget is BaseTargetFunctions, AddressGulper, Prop
         morpho.borrow(params, 0, shares, onBehalf, receiver);
     }
 
-    function morpho_liquidate(address borrower, uint256 seizedAssets, uint256 marketIndex) public {
+    function morpho_liquidateAssets(address borrower, uint256 marketIndex) public {
         marketIndex %= (marketNumbers - 1);
         MarketParams memory params = markets[marketIndex];
+        uint256 seizedAssets;
+        oracle.setPrice(0); // <= won't cover it unless I put it 
+        Id id = params.id();
+        (,, seizedAssets) = morpho.position(id, borrower);
         morpho.liquidate(params, borrower, seizedAssets, 0, "");
+    }
+    function morpho_liquidateShares(address borrower, uint256 marketIndex) public {
+        marketIndex %= (marketNumbers - 1);
+        MarketParams memory params = markets[marketIndex];
+        uint256 seizedShares;
+        oracle.setPrice(0);
+        Id id = params.id();
+        (,, seizedShares) = morpho.position(id, borrower);
+        morpho.liquidate(params, borrower, 0, seizedShares, "");
     }
 
     function morpho_repayAssets(uint256 assets, address onBehalf, uint256 marketIndex) public {
         marketIndex %= (marketNumbers - 1);
         MarketParams memory params = markets[marketIndex];
 
-        morpho_borrowAssets(1, address(this), address(this), marketIndex);
-        morpho.repay(params, 1, 0, address(this), "");
+        // morpho_borrowAssets(1, address(this), address(this), marketIndex);
+        morpho.repay(params, assets, 0, address(this), "");
     }
 
     function morpho_repayShares(uint256 shares, address onBehalf, uint256 marketIndex) public {

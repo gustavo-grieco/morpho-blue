@@ -24,3 +24,8 @@ emv-*-certora*
 /types
 /cache_hardhat
 /artifacts
+
+# test
+
+.txt
+2.txt
