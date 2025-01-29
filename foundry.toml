@@ -1,13 +1,13 @@
 [profile.default]
 libs = ["lib"]
 names = true
-sizes = true
-via_ir = true
-optimizer = true
+sizes = false
+via_ir = false
+optimizer = false
 optimizer_runs = 999999 
 # can lead to white lines 
 # bytecode_hash = "none"
-evm_version = "paris"
+evm_version = "shanghai"
 [profile.default.invariant]
 runs = 16
 depth = 256

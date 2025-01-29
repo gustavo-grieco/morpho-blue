@@ -7,219 +7,209 @@ import {Properties} from "./Properties.sol";
 import {vm} from "@chimera/Hevm.sol";
 import {MarketParams, Id, Position} from "../../src/interfaces/IMorpho.sol";
 import {MarketParamsLib} from "../../src/libraries/MarketParamsLib.sol";
-import {AddressGulper} from "./FuzzHelper.sol";
+import {ExampleToken} from "./mocks/ExampleToken.sol";
+import {OracleMock} from "../../src/mocks/OracleMock.sol";
+import {IrmMock} from "../../src/mocks/IrmMock.sol";
+import {console} from "forge-std/console.sol";
+import {IOracle} from "../../src/interfaces/IOracle.sol";
+import {Canaries} from "./Canaries.sol";
 
-abstract contract TargetFunctions is BaseTargetFunctions, Properties {
+abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
     using MarketParamsLib for MarketParams;
 
-    MarketParams parameter = MarketParams({
-        loanToken: address(loanToken),
-        collateralToken: address(collateralToken),
-        oracle: address(oracle),
-        irm: address(irm),
-        lltv: lltv94
-    }); // why I cannot use this ?
 
-    function mockOracle_setPrice(uint256 price) public {
-        //pass
-        oracle.setPrice(price);
+    // Switch Functions
+    function swichBorrower(uint256 index) public {
+        index %= players.length;
+        borrower = players[index];
     }
 
-    function morpho_setAuthorization(address authorized, bool newIsAuthorized) public {
-        morpho.setAuthorization(authorized, newIsAuthorized);
-        // pass
+    function switchOnBehalf(uint256 index) public {
+        index %= players.length;
+        onBehalf = players[index];
     }
+
+    function switchReceiver(uint256 index) public {
+        index %= players.length;
+        receiver = players[index];
+    }
+
+
+    function switchMarket(uint256 index) public {
+        index %= (marketNumber);
+        currentMarket = markets[index];
+    }
+    // the rest
+    function mint(uint256 tokenIndex, uint256 amount) public {
+        tokenIndex %= (tokens.length);
+        tokens[tokenIndex].mint(address(this), amount);
+        tokens[tokenIndex].approve(address(morpho), amount);
+    }
+
+    function deployIRM() public {
+        //market must have its own coll, debt, one oracle, one IRM
+        IrmMock irm = new IrmMock();
+        irms.push(irm);
+    } //NOTE how do we track how many markets are actually being deployed ?
 
     function morpho_setOwner(address newOwner) public {
-        //pass
-        vm.prank(address(this));
         morpho.setOwner(newOwner);
     }
 
-    function morpho_setFee(uint256 newFee) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-
-        newFee %= 0.25e18; //
-        morpho.setFee(params, newFee);
-    }
-
     function morpho_setFeeRecipient(address newFeeRecipient) public {
-        //pass
-        vm.prank(address(this)); //clamp
         morpho.setFeeRecipient(newFeeRecipient);
     }
 
     function morpho_enableLltv(uint256 lltv) public {
-        lltv = lltv % (1e18 - 1);
+        lltv %= (1e18);
         morpho.enableLltv(lltv);
-        // canary passes
+        enabledLltv.push(lltv);
     }
 
-    function morpho_supplyCollateral(uint256 assets, address onBehalf) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        morpho.supplyCollateral(params, assets, onBehalf, "");
+    function morpho_enableIrm(uint256 irmIndex) public {
+        irmIndex %= irms.length;
+        morpho.enableIrm(address(irms[irmIndex]));
     }
 
-    function morpho_supplyAssets(uint256 assets) public {
-        assets = assets % type(uint128).max; // less reverts ?
-        //
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        //
-        morpho.supply(params, assets, 0, address(this), "");
+    function morpho_setAuthorization(bool newIsAuthorized) public {
+        morpho.setAuthorization(onBehalf, newIsAuthorized);
     }
 
-    function morpho_supplyShares(uint256 shares) public {
-        shares = shares % type(uint128).max; // less reverts ?
-        //
+    function morpho_deployMarket(uint256 irmIndex, uint256 collateralIndex, uint256 loanIndex, uint256 lltvIndex)
+        public
+    {
+        loanIndex %= (tokens.length);
+        collateralIndex %= (tokens.length);
+        irmIndex %= (irms.length);
+        lltvIndex %= (enabledLltv.length);
+
+        require(loanIndex != collateralIndex, "same collateral and loan");
+        address oracle = address(oracles[collateralIndex]);
+
         MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
+            loanToken: address(tokens[loanIndex]),
+            collateralToken: address(tokens[collateralIndex]),
+            oracle: address(oracles[collateralIndex]),
+            irm: address(irms[irmIndex]),
+            lltv: enabledLltv[lltvIndex]
         });
-        //
-        morpho.supply(params, 0, shares, address(this), "");
+
+        morpho.createMarket(params);
+
+        marketNumber++;
+
+        markets.push(params);
+
+        currentMarket = params;
+
+        // populateMapping(tokenForMarketCombination, tokens[collateralIndex], tokens[loanIndex]);
+        // canary_all_TokensUsed();
     }
 
-    function morpho_withdrawAsset(uint256 assets, address onBehalf, address receiver) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-
-        morpho.withdraw(params, assets, 0, onBehalf, receiver);
+    function morpho_flashLoan(uint256 amountBorrow) public {
+        address collateral = currentMarket.collateralToken;
+        morpho.flashLoan(collateral, amountBorrow, "");
     }
 
-    function morpho_withdrawShares(uint256 shares, address onBehalf, address receiver) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-
-        morpho.withdraw(params, 0, shares, onBehalf, receiver);
+    function morpho_setFee(uint256 newFee) public {
+        newFee %= 0.25e18; //NOTE Clamped
+        morpho.setFee(currentMarket, newFee);
     }
 
-    function morpho_withdrawCollateral(uint256 assets, address onBehalf, address receiver) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        morpho.withdrawCollateral(params, assets, onBehalf, receiver);
-    }
-    // The trade off of these function is that I have set a fixed lltv ?
-
-    function morpho_borrowAssets(uint256 assets, address onBehalf, address receiver) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        // morpho_supplyShares(1);
-        // morpho_supplyCollateral(1, address(this));
-        // oracle.setPrice(2000267759191294354867396256538593928);
-        morpho.borrow(params, assets, 0, address(this), address(this));
-    } // had to guide it at first, setting assets to 1
-
-    function morpho_borrowShares(uint256 shares, address onBehalf, address receiver) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        morpho.borrow(params, 0, shares, address(this), address(this));
+    function morpho_setPrice(uint256 price) public {
+        OracleMock currentOracle = OracleMock(currentMarket.oracle);
+        currentOracle.setPrice(price);
     }
 
-    function morpho_liquidateAssets(address borrower, uint256 toSeize) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        Id id = params.id();
-        (,, toSeize) = morpho.position(id, borrower); //why it doesn't find explore the whole function without this ?
-        morpho.liquidate(params, borrower, toSeize, 0, "");
+    function morpho_supplyCollateral(uint256 assets) public beforeAfter {
+        morpho.supplyCollateral(currentMarket, assets, onBehalf, "");
     }
 
-    function morpho_liquidateShares(address borrower, uint256 seizedShares) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-
-        morpho.liquidate(params, borrower, 0, seizedShares, "");
+    function morpho_supply(uint256 assets, uint256 shares) public beforeAfter {
+        morpho.supply(currentMarket, assets, shares, address(this), ""); //NOTE address has been clamped
     }
 
-    function morpho_repayShares(uint256 shares, address onBehalf) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        morpho.repay(params, 0, shares, onBehalf, "");
+    function morpho_clamped_supplyAssets(uint256 assets) public beforeAfter {
+        morpho_supply(assets, 0);
     }
 
-    function morpho_repayAssets(uint256 assets, address onBehalf) public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        morpho.repay(params, assets, 0, onBehalf, ""); //to change
+    function morpho_clamped_supplyShares(uint256 shares) public beforeAfter {
+        morpho_supply(0, shares);
     }
 
-    function morpho_flashLoan(uint256 amountborrow) public {
-        morpho.flashLoan(address(collateralToken), amountborrow, "");
+    function morpho_withdrawCollateral(uint256 assets) public beforeAfter {
+        morpho.withdrawCollateral(currentMarket, assets, onBehalf, receiver);
     }
 
-    function morpho_accrueInterest() public {
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
-        morpho.accrueInterest(params);
+    function morpho_borrow(uint256 assets, uint256 shares) public beforeAfter {
+        morpho.borrow(currentMarket, assets, shares, onBehalf, receiver);
+    }
+
+    function morpho_clamped_borrowAssets(uint256 assets) public beforeAfter {
+        morpho_borrow(assets, 0);
+    }
+
+    // function morpho_macro_borrowAssets(uint256 price, uint256 supplyAmount, uint256 borrowA) public {
+    //     morpho_supplyCollateral(supplyAmount); // is this macro ? We don't want it
+    //     morpho_clamped_borrowAssets(borrowA); //NOTE can we get this path within 1mill runs ? 
+    // }
+
+    function morpho_clamped_borrowShares(uint256 shares) public beforeAfter {
+        morpho_borrow(0, shares);
+    }
+
+    function morpho_withdrawAsset(uint256 assets) public beforeAfter {
+        morpho.withdraw(currentMarket, assets, 0, onBehalf, receiver);
+    }
+
+    function morpho_withdrawShares(uint256 shares) public beforeAfter {
+        morpho.withdraw(currentMarket, 0, shares, onBehalf, receiver);
+    }
+
+    function morpho_repay(uint256 assets, uint256 shares) public beforeAfter {
+        morpho.repay(currentMarket, assets, shares, onBehalf, ""); 
+    }
+
+    function morpho_clamped_repayAssets(uint256 assets) public beforeAfter {
+        morpho_repay(assets, 0);
+    }
+
+    // function morpho_macro_repayAssets() public {
+    //     morpho_clamped_repayAssets(1); //NOTE MACRO
+    // }
+
+    function morpho_clamped_repayShares(uint256 shares) public beforeAfter {
+        morpho_repay(0, shares);
+    }
+
+    function morpho_accrueInterest() public beforeAfter {
+        morpho.accrueInterest(currentMarket);
+    }
+
+    function morpho_liquidate(uint256 assets, uint256 shares) public beforeAfter {
+        morpho.liquidate(currentMarket, borrower, assets, shares, ""); //NOTE clamped address
+    }
+
+    function morpho_clamped_liquidateAssets(uint256 assets) public beforeAfter {
+        morpho_liquidate(assets, 0);
+    }
+
+    function morpho_macro_liquidateAssets(uint256 price, uint256 assets) public beforeAfter {
+        morpho_setPrice(price);
+        morpho_clamped_liquidateAssets(assets);
+
+        populateMapping(liquidated, ExampleToken(currentMarket.collateralToken), ExampleToken(currentMarket.loanToken));
+        canary_all_Tokens_liquidated(); //this didn't hit in 10 million
+        //will it ever hit ? I guess eventually
+    }
+
+    function morpho_superSet_macroLiquidate(uint256 price) public beforeAfter {
+        Id id = currentMarket.id();
+        (,, uint256 seizedAssets) = morpho.position(id, borrower); 
+        morpho_macro_liquidateAssets(price, seizedAssets); //NOTE reached within 2 million runs
+    }
+
+    function morpho_clamped_liquidateShares(uint256 shares) public beforeAfter {
+        morpho_liquidate(0, shares); //NOTE Reached at 2.5 mill runs
     }
 }

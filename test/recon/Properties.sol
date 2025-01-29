@@ -6,4 +6,9 @@ import {BeforeAfter} from "./BeforeAfter.sol";
 
 abstract contract Properties is BeforeAfter, Asserts {
 // example property test that gets run after each call in sequence
-}
+    function property_never_self_liquidate() public returns (bool) {
+        if(_before.isHealthy) {
+            t(_after.isHealthy, "User action made protocol unhealthy");
+        }
+    }
+}   

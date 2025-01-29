@@ -2,55 +2,78 @@
 pragma solidity ^0.8.0;
 
 import {BaseSetup} from "@chimera/BaseSetup.sol";
+import {MarketParams, Id, Position} from "../../src/interfaces/IMorpho.sol";
 import {ExampleToken} from "./mocks/ExampleToken.sol";
 import {Morpho} from "../../src/Morpho.sol";
-import {ERC20Mock} from "../../src/mocks/ERC20Mock.sol";
 import {OracleMock} from "../../src/mocks/OracleMock.sol";
-import {IrmMock} from "../../src/mocks/IrmMock.sol";
-import {MarketParams} from "../../src/interfaces/IMorpho.sol";
 import {Test} from "forge-std/Test.sol";
 import {vm} from "@chimera/Hevm.sol";
+import {IrmMock} from "../../src/mocks/IrmMock.sol";
+
 
 abstract contract Setup is BaseSetup {
-    ExampleToken loanToken;
-    ExampleToken collateralToken;
-    Morpho morpho;
-    address owner = address(this);
-    OracleMock oracle;
-    IrmMock irm;
-    ERC20Mock mockToken;
 
-    uint256 public lltv94 = 945000000000000000;
+    Morpho morpho;
+    // USERS
+    address owner = address(this);
+    address bob = address(1);
+    address patrick = address(2);
+    address schneider = address(3);
+
+
+    address[] players;
+    ExampleToken[] tokens;
+    OracleMock[] oracles;
+    
+    //TOKENS
+
+    ExampleToken usdc;
+    ExampleToken usdt;
+    ExampleToken weth;
+    
+    //Switches
+
+    uint256 marketNumber;
+    MarketParams currentMarket;
+    address receiver;
+    address onBehalf;
+    address borrower;
+
+    //
+    MarketParams[] markets;
+    IrmMock[] irms;
+    uint256[] enabledLltv;
+
 
     function setup() internal virtual override {
-        loanToken = new ExampleToken();
-        collateralToken = new ExampleToken();
         morpho = new Morpho(owner);
-        oracle = new OracleMock();
-        irm = new IrmMock();
 
-        // // deploy market ?
+        ///
 
-        morpho.enableIrm(address(irm));
-        morpho.enableLltv(lltv94);
+        players.push(owner);
+        players.push(bob);
+        players.push(schneider);
+        players.push(patrick);
+        
+        ///
 
-        MarketParams memory params = MarketParams({
-            loanToken: address(loanToken),
-            collateralToken: address(collateralToken),
-            oracle: address(oracle),
-            irm: address(irm),
-            lltv: lltv94
-        });
+        usdc = new ExampleToken();
+        usdt = new ExampleToken();
+        weth = new ExampleToken();
 
-        morpho.createMarket(params);
-        //@note should I set price ?
-        /// could use flashborrower as well probably to be deployed here
+        tokens.push(usdc);
+        tokens.push(usdt);
+        tokens.push(weth);
 
-        collateralToken.approve(address(morpho), type(uint128).max);
-        collateralToken.mint(address(this), type(uint128).max);
+        /// oracles
 
-        loanToken.approve(address(morpho), type(uint128).max);
-        loanToken.mint(address(address(this)), type(uint128).max);
+        OracleMock usdcOracle = new OracleMock();
+        OracleMock usdtOracle = new OracleMock();
+        OracleMock wethOracle = new OracleMock();
+
+        oracles.push(usdcOracle);
+        oracles.push(usdtOracle);
+        oracles.push(wethOracle);
     }
 
     function onMorphoFlashLoan(uint256 assets, bytes calldata data) external {}
