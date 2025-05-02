@@ -26,9 +26,10 @@ abstract contract BeforeAfter is Setup {
     function __after() internal {
         Id id = currentMarket.id();
         _after.isHealthy = morpho._isHealthy(currentMarket, id, borrower);
+        assert(_after.isHealthy);
     }
 
-    modifier beforeAfter {
+    modifier beforeAfter() {
         __before();
         _;
         __after();

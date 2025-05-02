@@ -16,25 +16,6 @@ import {Canaries} from "./Canaries.sol";
 
 abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
     using MarketParamsLib for MarketParams;
-
-
-    // Switch Functions
-    function swichBorrower(uint256 index) public {
-        index %= players.length;
-        borrower = players[index];
-    }
-
-    function switchOnBehalf(uint256 index) public {
-        index %= players.length;
-        onBehalf = players[index];
-    }
-
-    function switchReceiver(uint256 index) public {
-        index %= players.length;
-        receiver = players[index];
-    }
-
-
     function switchMarket(uint256 index) public {
         index %= (marketNumber);
         currentMarket = markets[index];
@@ -61,7 +42,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
     }
 
     function morpho_enableLltv(uint256 lltv) public {
-        lltv %= (1e18);
         morpho.enableLltv(lltv);
         enabledLltv.push(lltv);
     }
@@ -71,7 +51,9 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         morpho.enableIrm(address(irms[irmIndex]));
     }
 
-    function morpho_setAuthorization(bool newIsAuthorized) public {
+    function morpho_setAuthorization(uint256 indexOnBehalf, bool newIsAuthorized) public {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];
         morpho.setAuthorization(onBehalf, newIsAuthorized);
     }
 
@@ -112,7 +94,6 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
     }
 
     function morpho_setFee(uint256 newFee) public {
-        newFee %= 0.25e18; //NOTE Clamped
         morpho.setFee(currentMarket, newFee);
     }
 
@@ -121,95 +102,66 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         currentOracle.setPrice(price);
     }
 
-    function morpho_supplyCollateral(uint256 assets) public beforeAfter {
+    function morpho_supplyCollateral(uint256 assets, uint256 indexOnBehalf) public beforeAfter {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];
         morpho.supplyCollateral(currentMarket, assets, onBehalf, "");
     }
 
-    function morpho_supply(uint256 assets, uint256 shares) public beforeAfter {
-        morpho.supply(currentMarket, assets, shares, address(this), ""); //NOTE address has been clamped
+    function morpho_supply(uint256 assets, uint256 shares, uint256 indexOnBehalf) public {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];        
+        morpho.supply(currentMarket, assets, shares, onBehalf, "");
     }
 
-    function morpho_clamped_supplyAssets(uint256 assets) public beforeAfter {
-        morpho_supply(assets, 0);
-    }
+    function morpho_withdrawCollateral(uint256 assets, uint256 indexOnBehalf, uint256 indexReceiver) public {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];
 
-    function morpho_clamped_supplyShares(uint256 shares) public beforeAfter {
-        morpho_supply(0, shares);
-    }
+        indexReceiver %= players.length;
+        address receiver = players[indexReceiver];
 
-    function morpho_withdrawCollateral(uint256 assets) public beforeAfter {
         morpho.withdrawCollateral(currentMarket, assets, onBehalf, receiver);
     }
 
-    function morpho_borrow(uint256 assets, uint256 shares) public beforeAfter {
+    function morpho_borrow(uint256 assets, uint256 shares, uint256 indexReceiver, uint256 indexOnBehalf) public {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];
+
+        indexReceiver %= players.length;
+        address receiver = players[indexReceiver];
+
         morpho.borrow(currentMarket, assets, shares, onBehalf, receiver);
     }
 
-    function morpho_clamped_borrowAssets(uint256 assets) public beforeAfter {
-        morpho_borrow(assets, 0);
+    function morpho_withdrawShares(uint256 shares, uint256 assets, uint256 indexReceiver, uint256 indexOnBehalf) public {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];
+
+        indexReceiver %= players.length;
+        address receiver = players[indexReceiver];
+
+        morpho.withdraw(currentMarket, assets, shares, onBehalf, receiver);
     }
 
-    // function morpho_macro_borrowAssets(uint256 price, uint256 supplyAmount, uint256 borrowA) public {
-    //     morpho_supplyCollateral(supplyAmount); // is this macro ? We don't want it
-    //     morpho_clamped_borrowAssets(borrowA); //NOTE can we get this path within 1mill runs ? 
-    // }
-
-    function morpho_clamped_borrowShares(uint256 shares) public beforeAfter {
-        morpho_borrow(0, shares);
-    }
-
-    function morpho_withdrawAsset(uint256 assets) public beforeAfter {
-        morpho.withdraw(currentMarket, assets, 0, onBehalf, receiver);
-    }
-
-    function morpho_withdrawShares(uint256 shares) public beforeAfter {
-        morpho.withdraw(currentMarket, 0, shares, onBehalf, receiver);
-    }
-
-    function morpho_repay(uint256 assets, uint256 shares) public beforeAfter {
+    function morpho_repay(uint256 assets, uint256 shares, uint256 indexOnBehalf) public {
+        indexOnBehalf %= players.length;
+        address onBehalf = players[indexOnBehalf];        
         morpho.repay(currentMarket, assets, shares, onBehalf, ""); 
     }
 
-    function morpho_clamped_repayAssets(uint256 assets) public beforeAfter {
-        morpho_repay(assets, 0);
-    }
-
-    // function morpho_macro_repayAssets() public {
-    //     morpho_clamped_repayAssets(1); //NOTE MACRO
-    // }
-
-    function morpho_clamped_repayShares(uint256 shares) public beforeAfter {
-        morpho_repay(0, shares);
-    }
-
-    function morpho_accrueInterest() public beforeAfter {
+    function morpho_accrueInterest() public {
         morpho.accrueInterest(currentMarket);
     }
 
-    function morpho_liquidate(uint256 assets, uint256 shares) public beforeAfter {
-        morpho.liquidate(currentMarket, borrower, assets, shares, ""); //NOTE clamped address
-    }
-
-    function morpho_clamped_liquidateAssets(uint256 assets) public beforeAfter {
-        morpho_liquidate(assets, 0);
-    }
-
-    function morpho_macro_liquidateAssets(uint256 price, uint256 assets) public beforeAfter {
+    function morpho_macro_liquidateAssets(uint256 price, uint256 indexBorrower, uint256 assets, uint256 shares) public beforeAfter {
         morpho_setPrice(price);
-        morpho_clamped_liquidateAssets(assets);
+        indexBorrower %= players.length;
+        borrower = players[indexBorrower];
 
-        populateMapping(liquidated, ExampleToken(currentMarket.collateralToken), ExampleToken(currentMarket.loanToken));
-        canary_all_Tokens_liquidated(); //this didn't hit in 10 million
-        //will it ever hit ? I guess eventually
-    }
+        morpho.liquidate(currentMarket, borrower, assets, shares, ""); 
 
-    function morpho_superSet_macroLiquidate(uint256 price) public beforeAfter {
-        Id id = currentMarket.id();
-        (,, uint256 seizedAssets) = morpho.position(id, borrower); 
-        morpho_macro_liquidateAssets(price, seizedAssets); //NOTE reached within 2 million runs
-    }
-
-    function morpho_clamped_liquidateShares(uint256 shares) public beforeAfter {
-        morpho_liquidate(0, shares); //NOTE Reached at 2.5 mill runs
+        //populateMapping(liquidated, ExampleToken(currentMarket.collateralToken), ExampleToken(currentMarket.loanToken));
+        //canary_all_Tokens_liquidated(); //this didn't hit in 10 million
     }
 }

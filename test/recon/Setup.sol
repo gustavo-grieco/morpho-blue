@@ -35,8 +35,6 @@ abstract contract Setup is BaseSetup {
 
     uint256 marketNumber;
     MarketParams currentMarket;
-    address receiver;
-    address onBehalf;
     address borrower;
 
     //

@@ -25,6 +25,9 @@ emv-*-certora*
 /cache_hardhat
 /artifacts
 
+# crytic
+crytic-export
+
 # test
 
 .txt
