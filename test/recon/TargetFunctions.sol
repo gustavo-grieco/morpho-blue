@@ -102,16 +102,22 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         currentOracle.setPrice(price);
     }
 
-    function morpho_supplyCollateral(uint256 assets, uint256 indexOnBehalf) public beforeAfter {
+    function morpho_supplyCollateral(uint256 assets, uint256 indexOnBehalf) public {
         indexOnBehalf %= players.length;
         address onBehalf = players[indexOnBehalf];
+        borrower = onBehalf;
+        __before(); 
         morpho.supplyCollateral(currentMarket, assets, onBehalf, "");
+        __after();
     }
 
     function morpho_supply(uint256 assets, uint256 shares, uint256 indexOnBehalf) public {
         indexOnBehalf %= players.length;
-        address onBehalf = players[indexOnBehalf];        
+        address onBehalf = players[indexOnBehalf];
+        borrower = onBehalf;
+        __before();        
         morpho.supply(currentMarket, assets, shares, onBehalf, "");
+        __after();
     }
 
     function morpho_withdrawCollateral(uint256 assets, uint256 indexOnBehalf, uint256 indexReceiver) public {
@@ -121,7 +127,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         indexReceiver %= players.length;
         address receiver = players[indexReceiver];
 
+        borrower = onBehalf;
+        __before();
         morpho.withdrawCollateral(currentMarket, assets, onBehalf, receiver);
+        __after();
     }
 
     function morpho_borrow(uint256 assets, uint256 shares, uint256 indexReceiver, uint256 indexOnBehalf) public {
@@ -131,7 +140,10 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         indexReceiver %= players.length;
         address receiver = players[indexReceiver];
 
+        borrower = onBehalf;
+        __before();
         morpho.borrow(currentMarket, assets, shares, onBehalf, receiver);
+        __after();
     }
 
     function morpho_withdrawShares(uint256 shares, uint256 assets, uint256 indexReceiver, uint256 indexOnBehalf) public {
@@ -141,27 +153,32 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         indexReceiver %= players.length;
         address receiver = players[indexReceiver];
 
+        borrower = onBehalf;
+        __before();
         morpho.withdraw(currentMarket, assets, shares, onBehalf, receiver);
+        __after();
     }
 
     function morpho_repay(uint256 assets, uint256 shares, uint256 indexOnBehalf) public {
         indexOnBehalf %= players.length;
-        address onBehalf = players[indexOnBehalf];        
+        address onBehalf = players[indexOnBehalf];
+        borrower = onBehalf;
+        __before();
         morpho.repay(currentMarket, assets, shares, onBehalf, ""); 
+        __after();
     }
 
     function morpho_accrueInterest() public {
         morpho.accrueInterest(currentMarket);
     }
 
-    function morpho_macro_liquidateAssets(uint256 price, uint256 indexBorrower, uint256 assets, uint256 shares) public beforeAfter {
+    function morpho_macro_liquidateAssets(uint256 price, uint256 indexBorrower, uint256 assets, uint256 shares) public {
         morpho_setPrice(price);
         indexBorrower %= players.length;
         borrower = players[indexBorrower];
-
+        //__before();
         morpho.liquidate(currentMarket, borrower, assets, shares, ""); 
-
-        //populateMapping(liquidated, ExampleToken(currentMarket.collateralToken), ExampleToken(currentMarket.loanToken));
-        //canary_all_Tokens_liquidated(); //this didn't hit in 10 million
+        assert(false);
+        //__after();
     }
 }

@@ -14,19 +14,18 @@ abstract contract BeforeAfter is Setup {
     struct Vars {
         bool isHealthy;
     }
+    Id id;
 
     Vars internal _before;
     Vars internal _after;
 
     function __before() internal {
-        Id id = currentMarket.id();
-        _before.isHealthy = morpho._isHealthy(currentMarket, id, borrower);
+        id = currentMarket.id();
+        require(morpho._isHealthy(currentMarket, id, borrower));
     }
 
     function __after() internal {
-        Id id = currentMarket.id();
-        _after.isHealthy = morpho._isHealthy(currentMarket, id, borrower);
-        assert(_after.isHealthy);
+        assert(morpho._isHealthy(currentMarket, id, borrower));
     }
 
     modifier beforeAfter() {
