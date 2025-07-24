@@ -7,10 +7,10 @@ cryticArgs: ["--foundry-compile-all"]
 #deployer: #"0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496"
 #contractAddr: #"0x7FA9385bE102ac3EAc297483Dd6233D62b3e1496"
 #disableSlither: false
-shrinkLimit: 100000
+shrinkLimit: 1000
 testLimit: 10000000000000000
-#format: text
-seqLen: 10
+format: text
+stopOnFail: true
 
 symExecMaxExplore: 400
 symExecMaxIters: 20

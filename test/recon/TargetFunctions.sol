@@ -15,6 +15,12 @@ import {IOracle} from "../../src/interfaces/IOracle.sol";
 import {Canaries} from "./Canaries.sol";
 
 abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
+    constructor() {
+      deployIRM();
+      deployIRM();
+      deployIRM();
+    }
+
     using MarketParamsLib for MarketParams;
     function switchMarket(uint256 index) public {
         index %= (marketNumber);
@@ -27,7 +33,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
         tokens[tokenIndex].approve(address(morpho), amount);
     }
 
-    function deployIRM() public {
+    function deployIRM() internal {
         //market must have its own coll, debt, one oracle, one IRM
         IrmMock irm = new IrmMock();
         irms.push(irm);
@@ -60,6 +66,7 @@ abstract contract TargetFunctions is BaseTargetFunctions, Properties, Canaries {
     function morpho_deployMarket(uint256 irmIndex, uint256 collateralIndex, uint256 loanIndex, uint256 lltvIndex)
         public
     {
+        require(marketNumber < 4);
         loanIndex %= (tokens.length);
         collateralIndex %= (tokens.length);
         irmIndex %= (irms.length);
